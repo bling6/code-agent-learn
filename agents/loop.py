@@ -26,7 +26,6 @@ def agent_loop(messages: list):
         # 如果没有 tool_calls，直接返回内容
         if not msg.tool_calls:
             return
-        # 打印工具调用信息，方便我们观察
 
         for tool_call in msg.tool_calls:
             tool_name = tool_call.function.name

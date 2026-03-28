@@ -125,6 +125,8 @@ def run_bash(command: str):
         return out[:8000] if out else "(无输出)"
     except subprocess.TimeoutExpired:
         return "命令执行超时"
+    except Exception as e:
+        return f"命令执行失败: {e}"
 
 
 # 读取文件工具

@@ -1,7 +1,7 @@
 from agents.loop import agent_loop
 import os
 
-SYSTEM = f"你是 {os.getcwd()} 的一名编码代理。可以使用 bash 命令。"
+SYSTEM = f"你是 {os.getcwd()} 的一名编码代理。可以使用 bash 命令。你只能在当前工作目录下操作。"
 
 
 def main():
@@ -22,7 +22,7 @@ def main():
         if out:
             print(out)
         print()
-        # print(f"历史记录: {messages}")
+        print(f"历史记录: {messages}")
 
 
 if __name__ == "__main__":

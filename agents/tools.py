@@ -1,3 +1,4 @@
+from pathlib import Path
 import subprocess
 import os
 
@@ -27,11 +28,83 @@ TOOLS = [
                         "description": "要运行的shell命令",
                     }
                 },
-                "required": ["command"]
+                "required": ["command"],
             },
-        }
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "read_file",
+            "description": "读取文件内容",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {
+                        "type": "string",
+                        "description": "要读取的文件路径",
+                    }
+                },
+                "required": ["path"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "write_file",
+            "description": "写入文件内容,用于创建新文件或完全覆盖已存在文件",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {
+                        "type": "string",
+                        "description": "要写入的文件路径",
+                    },
+                    "content": {
+                        "type": "string",
+                        "description": "要写入的内容",
+                    }
+                },
+                "required": ["path", "content"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "edit_file",
+            "description": "编辑现有文件内容,通过查找和替换特定文本来修改文件",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "path": {
+                        "type": "string",
+                        "description": "要编辑的文件路径",
+                    },
+                    "old_text": {
+                        "type": "string",
+                        "description": "要替换的原始文本(必须精确匹配)",
+                    },
+                    "new_text": {
+                        "type": "string",
+                        "description": "要替换为的文本",
+                    }
+                },
+                "required": ["path", "old_text", "new_text"],
+            },
+        },
     },
 ]
+WORKDIR = Path.cwd()
+
+
+def path_check(p: str):
+    path = (WORKDIR / p).resolve()
+    if not path.is_relative_to(WORKDIR):
+        raise ValueError("路径必须是相对于当前工作目录的路径")
+    return path
+
 
 # bash 命令工具
 def run_bash(command: str):
@@ -53,6 +126,49 @@ def run_bash(command: str):
     except subprocess.TimeoutExpired:
         return "命令执行超时"
 
+
+# 读取文件工具
+def run_read_file(path: str):
+    try:
+        file_path = path_check(path).expanduser()
+        if not file_path.exists() or not file_path.is_file():
+            return f"文件 {file_path} 不存在"
+        content = file_path.read_text(encoding="utf-8")
+        return content
+    except Exception as e:
+        return f"文件 {file_path} 读取失败: {e}"
+
+
+# 写入文件工具
+def run_write_file(path: str, content: str):
+    try:
+        file_path = path_check(path).expanduser()
+        # 确保目录存在
+        file_path.parent.mkdir(parents=True, exist_ok=True)
+        file_path.write_text(content, encoding="utf-8")
+        return f"文件 {file_path} 写入成功"
+    except Exception as e:
+        return f"文件 {file_path} 写入失败: {e}"
+
+
+# 编辑文件工具
+def run_edit_file(path: str, old_text: str, new_text: str):
+    try:
+        file_path = path_check(path).expanduser()
+        # 确保目录存在
+        old_content = file_path.read_text(encoding="utf-8")
+        if old_text not in old_content:
+            return f"文件 {file_path} 中不存在 {old_text}"
+        content = old_content.replace(old_text, new_text, 1)
+        file_path.write_text(content, encoding="utf-8")
+        return f"文件 {file_path} 编辑成功"
+    except Exception as e:
+        return f"文件 {file_path} 编辑失败: {e}"
+
+
 TOOL_MAPPER = {
     "bash": run_bash,
+    "read_file": run_read_file,
+    "write_file": run_write_file,
+    "edit_file": run_edit_file,
 }

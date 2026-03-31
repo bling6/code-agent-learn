@@ -3,7 +3,7 @@ from openai import OpenAI
 import os
 import json
 from dotenv import load_dotenv
-from agents.tools import TOOLS, TOOL_MAPPER
+from agents.tools import PARENT_TOOLS, TOOL_MAPPER
 
 load_dotenv()
 
@@ -14,17 +14,24 @@ client = OpenAI(
 
 
 class Agent:
-    def __init__(self, messages: list):
+    def __init__(
+        self, messages: list, tools: list = PARENT_TOOLS, isSubAgent: bool = False
+    ):
         self.rounds_since_todo = 0
         self.messages = messages
+        self.tools = tools
+        self.isSubAgent = isSubAgent
+
+    def start(self):
+        return self.agent_loop()
 
     def agent_loop(self):
         self.rounds_since_todo = 0
         while True:
-            print("\033[92m思考中...\033[0m")
+            print(f"\033[92m思考中...{'(子agent)' if self.isSubAgent else ''}\033[0m")
             response = client.chat.completions.create(
                 model="deepseek-chat",
-                tools=TOOLS,
+                tools=self.tools,
                 messages=self.messages,
                 max_tokens=8000,
                 stream=True,
@@ -45,7 +52,7 @@ class Agent:
                     self.deal_tool_chunk(delta, tool_calls_chunks, tool_call_printed)
             print()
 
-            full_content = "".join(content_chunks) if content_chunks else None
+            full_content = "".join(content_chunks) if content_chunks else "(无回复)"
 
             tool_calls = None
             if tool_calls_chunks:
@@ -72,7 +79,7 @@ class Agent:
                 )
 
             if not tool_calls:
-                return
+                return full_content
 
             self.tool_execute(tool_calls)
 
@@ -118,13 +125,17 @@ class Agent:
                 used_todo = True
             args = json.loads(tool_call["function"]["arguments"])
             tool_call_id = tool_call["id"]
-            if tool_name not in TOOL_MAPPER:
+            if tool_name == "task":
+                from agents.sub_agent import run_subagent
+
+                result = run_subagent(args["prompt"])
+            elif tool_name not in TOOL_MAPPER:
                 result = f"工具 {tool_name} 不存在"
             else:
                 result = TOOL_MAPPER[tool_name](**args)
             out = result if len(result) < 500 else result[:500] + "\n... (输出已截断)"
             print("\033[32m 执行结果:\033[0m")
-            print(f"\033[32m {out}\033[0m")
+            print(f"\033[32m{out}\033[0m")
             self.messages.append(
                 {"role": "tool", "tool_call_id": tool_call_id, "content": result}
             )

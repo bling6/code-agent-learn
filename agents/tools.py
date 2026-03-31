@@ -15,8 +15,7 @@ from .todo import todoList
 #         },
 #     }
 # ]
-
-TOOLS = [
+BASE_TOOLS = [
     {
         "type": "function",
         "function": {
@@ -134,6 +133,25 @@ TOOLS = [
         },
     },
 ]
+CHILD_TOOLS = BASE_TOOLS
+PARENT_TOOLS = CHILD_TOOLS + [{
+        "type": "function",
+        "function": {
+            "name": "task",
+            "description": "生成一个具有全新上下文的子代理,用于执行指定任务",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "prompt": {
+                        "type": "string",
+                        "description": "要运行的任务描述",
+                    }
+                },
+                "required": ["prompt"],
+            },
+        },
+    },]
+
 WORKDIR = Path.cwd()
 
 

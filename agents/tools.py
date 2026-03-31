@@ -2,6 +2,7 @@ from pathlib import Path
 import subprocess
 import os
 from .todo import todoList
+from .skill_loader import SKILL_LOADER
 
 
 # TOOLS = [
@@ -132,6 +133,23 @@ BASE_TOOLS = [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "load_skill",
+            "description": "加载技能的具体内容",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "description": "要加载的技能名称",
+                    }
+                },
+                "required": ["name"],
+            },
+        },
+    },
 ]
 CHILD_TOOLS = BASE_TOOLS
 PARENT_TOOLS = CHILD_TOOLS + [{
@@ -230,4 +248,5 @@ TOOL_MAPPER = {
     "write_file": run_write_file,
     "edit_file": run_edit_file,
     "todo": todoList.update,
+    "load_skill": SKILL_LOADER.get_content,
 }

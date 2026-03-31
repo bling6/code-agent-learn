@@ -1,13 +1,25 @@
 # from agents.loop import agent_loop
 from agents.agent import Agent
+from agents.skill_loader import SKILL_LOADER
+from agents.watch_skill import run_watch_skill, stop_watch_skill
 
 import os
 import sys
 
+
 # 系统提示词
 SYSTEM = f"""你是 {os.getcwd()} 的专业的 AI 程序员助手。
 
-注意事项：
+## 规则
+你拥有以下可用技能：
+{SKILL_LOADER.get_descriptions()}
+
+## 注意事项：
+- 你必须**先判断用户问题是否需要技能**：
+   - 不需要技能 → 直接正常回答
+   - 需要技能 → 必须按固定格式声明“加载技能”，再执行
+- 仅查看技能时，不需要加载技能的具体内容，只要告知用户技能description即可，除非用户明确表示某个技能的具体内容
+- 加载技能只能使用load_skill工具
 - 只能操作当前工作目录下的所有文件和目录，包括子级
 - 执行危险命令会被拒绝
 - 文件操作支持 UTF-8 编码
@@ -38,7 +50,9 @@ def _show_conversation_history(messages: list):
         content = msg.get("content", "")
 
         if role == "system":
-            print(f"\033[94m[{i}] 系统: \033[0m{content[:100]}{'...' if len(content) > 100 else ''}")
+            print(
+                f"\033[94m[{i}] 系统: \033[0m{content[:100]}{'...' if len(content) > 100 else ''}"
+            )
 
         if role == "user":
             print(
@@ -60,6 +74,7 @@ def _show_conversation_history(messages: list):
 
 def main():
     _print_welcome()
+    run_watch_skill()
     messages = [
         {"role": "system", "content": SYSTEM},
     ]
@@ -67,6 +82,7 @@ def main():
         try:
             user_input = input(">")
             if user_input.strip().lower() in ["exit", "quit", "q", ""]:
+                stop_watch_skill()
                 break
             if user_input.lower() == "clear":
                 # 保留系统消息，清空其他消息
@@ -77,7 +93,7 @@ def main():
             if user_input.lower() == "history":
                 _show_conversation_history(messages)
                 continue
-            
+
             messages.append(
                 {"role": "user", "content": user_input},
             )
@@ -87,6 +103,7 @@ def main():
             print()
 
         except (EOFError, KeyboardInterrupt):
+            stop_watch_skill()
             break
 
         except Exception as e:

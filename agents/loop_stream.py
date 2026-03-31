@@ -12,89 +12,109 @@ client = OpenAI(
 )
 
 
-def agent_loop(messages: list):
-    while True:
-        print("\033[92m思考中...\033[0m")
-        response = client.chat.completions.create(
-            model="deepseek-chat",
-            tools=TOOLS,
-            messages=messages,
-            max_tokens=8000,
-            stream=True,
-        )
+class Agent:
+    def __init__(self, messages: list):
+        self.rounds_since_todo = 0
+        self.messages = messages
 
-        content_chunks = []
-        tool_calls_chunks = {}
-        tool_call_printed = set()
+    def agent_loop(self):
+        self.rounds_since_todo = 0
+        while True:
+            print("\033[92m思考中...\033[0m")
+            response = client.chat.completions.create(
+                model="deepseek-chat",
+                tools=TOOLS,
+                messages=self.messages,
+                max_tokens=8000,
+                stream=True,
+            )
 
-        for chunk in response:
-            delta = chunk.choices[0].delta
+            content_chunks = []
+            tool_calls_chunks = {}
+            tool_call_printed = set()
 
-            if delta.content:
-                print(delta.content, end="", flush=True)
-                content_chunks.append(delta.content)
+            for chunk in response:
+                delta = chunk.choices[0].delta
 
-            if delta.tool_calls:
-                for tool_call_delta in delta.tool_calls:
-                    idx = tool_call_delta.index
-                    if idx not in tool_calls_chunks:
-                        tool_calls_chunks[idx] = {
-                            "id": "",
-                            "type": "function",
-                            "function": {"name": "", "arguments": ""},
+                if delta.content:
+                    print(delta.content, end="", flush=True)
+                    content_chunks.append(delta.content)
+
+                if delta.tool_calls:
+                    self.deal_tool_chunk(delta, tool_calls_chunks, tool_call_printed)
+            print()
+
+            full_content = "".join(content_chunks) if content_chunks else None
+
+            tool_calls = None
+            if tool_calls_chunks:
+                tool_calls = []
+                for index in sorted(tool_calls_chunks.keys()):
+                    chunk = tool_calls_chunks[index]
+                    tool_calls.append(
+                        {
+                            "id": chunk["id"],
+                            "type": chunk["type"],
+                            "function": {
+                                "name": chunk["function"]["name"],
+                                "arguments": chunk["function"]["arguments"],
+                            },
                         }
-                    if tool_call_delta.id:
-                        tool_calls_chunks[idx]["id"] = tool_call_delta.id
-                    if tool_call_delta.function:
-                        if tool_call_delta.function.name:
-                            tool_calls_chunks[idx]["function"]["name"] = (
-                                tool_call_delta.function.name
-                            )
-                            if idx not in tool_call_printed:
-                                print(
-                                    f"\n\033[33m🛠️ [调用工具] {tool_call_delta.function.name}\033[0m"
-                                )
-                                print("\033[90m   参数: \033[0m", end="", flush=True)
-                                tool_call_printed.add(idx)
-                        if tool_call_delta.function.arguments:
-                            tool_calls_chunks[idx]["function"]["arguments"] += (
-                                tool_call_delta.function.arguments
-                            )
-                            print(
-                                tool_call_delta.function.arguments,
-                                end="",
-                                flush=True,
-                            )
+                    )
 
-        print()
-
-        full_content = "".join(content_chunks) if content_chunks else None
-
-        tool_calls = None
-        if tool_calls_chunks:
-            tool_calls = []
-            for idx in sorted(tool_calls_chunks.keys()):
-                tc = tool_calls_chunks[idx]
-                tool_calls.append(
+                self.messages.append(
                     {
-                        "id": tc["id"],
-                        "type": tc["type"],
-                        "function": {
-                            "name": tc["function"]["name"],
-                            "arguments": tc["function"]["arguments"],
-                        },
+                        "role": "assistant",
+                        "content": full_content,
+                        "tool_calls": tool_calls,
                     }
                 )
 
-        messages.append(
-            {"role": "assistant", "content": full_content, "tool_calls": tool_calls}
-        )
+            if not tool_calls:
+                return
 
-        if not tool_calls:
-            return
+            self.tool_execute(tool_calls)
 
+            print()
+
+    def deal_tool_chunk(self, delta, tool_calls_chunks, tool_call_printed):
+        for tool_call_delta in delta.tool_calls:
+            index = tool_call_delta.index
+            if index not in tool_calls_chunks:
+                tool_calls_chunks[index] = {
+                    "id": "",
+                    "type": "function",
+                    "function": {"name": "", "arguments": ""},
+                }
+            if tool_call_delta.id:
+                tool_calls_chunks[index]["id"] = tool_call_delta.id
+            if tool_call_delta.function:
+                if tool_call_delta.function.name:
+                    tool_calls_chunks[index]["function"]["name"] = (
+                        tool_call_delta.function.name
+                    )
+                    if index not in tool_call_printed:
+                        print(
+                            f"\n\033[33m🛠️ [调用工具] {tool_call_delta.function.name}\033[0m"
+                        )
+                        print("\033[90m   参数: \033[0m", end="", flush=True)
+                        tool_call_printed.add(index)
+                if tool_call_delta.function.arguments:
+                    tool_calls_chunks[index]["function"]["arguments"] += (
+                        tool_call_delta.function.arguments
+                    )
+                    print(
+                        tool_call_delta.function.arguments,
+                        end="",
+                        flush=True,
+                    )
+
+    def tool_execute(self, tool_calls: list):
+        used_todo = False
         for tool_call in tool_calls:
             tool_name = tool_call["function"]["name"]
+            if tool_name == "todo":
+                used_todo = True
             args = json.loads(tool_call["function"]["arguments"])
             tool_call_id = tool_call["id"]
             if tool_name not in TOOL_MAPPER:
@@ -102,9 +122,13 @@ def agent_loop(messages: list):
             else:
                 result = TOOL_MAPPER[tool_name](**args)
             out = result if len(result) < 500 else result[:500] + "\n... (输出已截断)"
-            print(f"\033[32m   执行结果: {out}\033[0m")
-            messages.append(
+            print("\033[32m 执行结果:\033[0m")
+            print(f"\033[32m {out}\033[0m")
+            self.messages.append(
                 {"role": "tool", "tool_call_id": tool_call_id, "content": result}
             )
-
-        print()
+        
+        self.rounds_since_todo = 0 if used_todo else self.rounds_since_todo + 1
+        # 超过三次未更新任务，需要提醒
+        if self.rounds_since_todo >= 3:
+            self.messages.append({"role": "user", "content": "更新任务列表"})

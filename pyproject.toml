@@ -9,4 +9,5 @@ dependencies = [
     "langchain>=1.2.13",
     "langchain-openai>=1.1.12",
     "openai>=2.30.0",
+    "pytest>=9.0.2",
 ]

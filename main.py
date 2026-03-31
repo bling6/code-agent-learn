@@ -1,5 +1,5 @@
 # from agents.loop import agent_loop
-from agents.loop_stream import agent_loop
+from agents.loop_stream import Agent
 
 import os
 import sys
@@ -8,10 +8,10 @@ import sys
 SYSTEM = f"""你是 {os.getcwd()} 的专业的 AI 程序员助手。
 
 注意事项：
-- 只能操作当前工作目录下的所有文件和目录
+- 只能操作当前工作目录下的所有文件和目录，包括子级
 - 执行危险命令会被拒绝
 - 文件操作支持 UTF-8 编码
-- 运行程序文件使用uv run main.py命令运行，如果uv run命令不存在，请先安装uv包，需要使用者确认安装
+- 使用uv包管理工具，如果uv命令不存在，请先安装uv包，需要使用者确认安装
 """
 
 
@@ -37,7 +37,7 @@ def _show_conversation_history(messages: list):
         content = msg.get("content", "")
 
         if role == "system":
-            continue  # 跳过系统消息
+            print(f"\033[94m[{i}] 系统: \033[0m{content[:100]}{'...' if len(content) > 100 else ''}")
 
         if role == "user":
             print(
@@ -61,6 +61,7 @@ def main():
     messages = [
         {"role": "system", "content": SYSTEM},
     ]
+    agent = Agent(messages)
     while True:
         try:
             user_input = input(">")
@@ -79,7 +80,7 @@ def main():
             messages.append(
                 {"role": "user", "content": user_input},
             )
-            out = agent_loop(messages)
+            out = agent.agent_loop()
             if out:
                 print(out)
             print()

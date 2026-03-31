@@ -1,6 +1,8 @@
 from pathlib import Path
 import subprocess
 import os
+from .todo import todoList
+
 
 # TOOLS = [
 #     {
@@ -64,7 +66,7 @@ TOOLS = [
                     "content": {
                         "type": "string",
                         "description": "要写入的内容",
-                    }
+                    },
                 },
                 "required": ["path", "content"],
             },
@@ -89,9 +91,45 @@ TOOLS = [
                     "new_text": {
                         "type": "string",
                         "description": "要替换为的文本",
-                    }
+                    },
                 },
                 "required": ["path", "old_text", "new_text"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "todo",
+            "description": "更新任务列表。跟踪多步骤任务的进度。",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "items": {
+                        "type": "array",
+                        "description": "要更新的任务列表",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "id": {
+                                    "type": "string",
+                                    "description": "任务ID",
+                                },
+                                "text": {
+                                    "type": "string",
+                                    "description": "任务文本",
+                                },
+                                "status": {
+                                    "type": "string",
+                                    "description": "任务状态",
+                                    "enum": ["pending", "in_progress", "completed"],
+                                },
+                            },
+                            "required": ["id", "text", "status"],
+                        },
+                    },
+                },
+                "required": ["items"],
             },
         },
     },
@@ -173,4 +211,5 @@ TOOL_MAPPER = {
     "read_file": run_read_file,
     "write_file": run_write_file,
     "edit_file": run_edit_file,
+    "todo": todoList.update,
 }

@@ -2,6 +2,7 @@
 from agents.agent import Agent
 from agents.utils.skill_loader import SKILL_LOADER
 from agents.utils.watch_skill import run_watch_skill, stop_watch_skill
+from agents.utils.Permission import PermissionManager
 
 import os
 import sys
@@ -76,6 +77,7 @@ def main():
     messages = [
         {"role": "system", "content": SYSTEM},
     ]
+    perms = PermissionManager()
     while True:
         try:
             user_input = input(">")
@@ -95,7 +97,7 @@ def main():
             messages.append(
                 {"role": "user", "content": user_input},
             )
-            Agent(messages=messages).run()
+            Agent(messages=messages, permission=perms).run()
             # if out:
             #     print(out)
             print()

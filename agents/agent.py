@@ -5,6 +5,8 @@ import json
 from dotenv import load_dotenv
 from agents.tools import PARENT_TOOLS, TOOL_MAPPER
 from agents.utils.context_compression import tools_msg_compression, auto_compression
+from agents.utils.Permission import PermissionManager
+
 
 load_dotenv()
 
@@ -21,12 +23,14 @@ class Agent:
     def __init__(
         self,
         messages: list,
+        permission: PermissionManager = None,
         tools: list = PARENT_TOOLS,
         isSubAgent: bool = False,
     ):
         self.rounds_since_todo = 0
         self.messages = messages
         self.tools = tools
+        self.permission = permission
         self.isSubAgent = isSubAgent
 
     def run(self):
@@ -135,10 +139,25 @@ class Agent:
         used_todo = False
         for tool_call in tool_calls:
             tool_name = tool_call["function"]["name"]
+            tool_call_id = tool_call["id"]
+            args = json.loads(tool_call["function"]["arguments"])
+            # 检查权限
+            permission = self.check_permission(tool_name, args)
+            if permission["result"] == "deny":
+                print("\033[32m 执行结果:\033[0m")
+                print(f"\033[32m{permission['reason']}\033[0m")
+                self.messages.append(
+                    {
+                        "role": "tool",
+                        "tool_call_id": tool_call_id,
+                        "content": permission["reason"],
+                    }
+                )
+                continue
+            result = permission["result"]
+
             if tool_name == "todo":
                 used_todo = True
-            args = json.loads(tool_call["function"]["arguments"])
-            tool_call_id = tool_call["id"]
             # subagent 调用
             if tool_name == "task":
                 from agents.sub_agent import run_subagent
@@ -163,3 +182,21 @@ class Agent:
         # 超过三次未更新任务，需要提醒
         if self.rounds_since_todo >= 3:
             self.messages.append({"role": "user", "content": "记得更新任务列表"})
+
+    def check_permission(self, tool_name: str, args: dict):
+        decision = self.permission.check(tool_name, args)
+        print(args, decision)
+        if decision["behavior"] == "deny":
+            return {
+                "result": "deny",
+                "reason": f"[拒绝执行] {decision['reason']}",
+            }
+        elif decision["behavior"] == "ask":
+            if not self.permission.ask_user(tool_name, args):
+                return {
+                    "result": "deny",
+                    "reason": "用户拒绝",
+                }
+        return {
+            "result": "allow",
+        }

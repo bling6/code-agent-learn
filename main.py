@@ -9,22 +9,20 @@ import sys
 
 # 系统提示词
 SYSTEM = f"""你是 {os.getcwd()} 的专业的 AI 程序员助手。
-
-## 规则
-你拥有以下可用技能：
-{SKILL_LOADER.get_descriptions()}
-
-## 注意事项：
+注意事项：
 - 你必须**先判断用户问题是否需要技能**：
    - 不需要技能 → 直接正常回答
    - 需要技能 → 必须按固定格式声明“加载技能”，再执行
-- 仅查看技能时，不需要加载技能的具体内容，只要告知用户技能description即可，除非用户明确表示某个技能的具体内容
-- 加载技能只能使用load_skill工具
+- 加载技能使用load_skill工具
 - 只能操作当前工作目录下的所有文件和目录，包括子级
 - 执行危险命令会被拒绝
 - 文件操作支持 UTF-8 编码
 - 使用uv包管理工具，如果uv命令不存在，请先安装uv包，需要使用者确认安装
 - 回复内容不用过于详细
+
+你拥有以下可用技能：
+{SKILL_LOADER.get_descriptions()}
+
 """
 
 
@@ -97,7 +95,7 @@ def main():
             messages.append(
                 {"role": "user", "content": user_input},
             )
-            Agent(messages).start()
+            Agent(messages=messages).run()
             # if out:
             #     print(out)
             print()

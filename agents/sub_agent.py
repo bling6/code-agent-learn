@@ -19,7 +19,7 @@ def run_subagent(prompt: str):
         {"role": "system", "content": SUB_SYSTEM},
         {"role": "user", "content": prompt},
     ]
-    out = Agent(message, CHILD_TOOLS, True).start()
+    out = Agent(messages=message, tools=CHILD_TOOLS, isSubAgent=True).run()
     print(f"子agent回复: {out}")
     return out
    

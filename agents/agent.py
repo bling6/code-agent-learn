@@ -19,14 +19,17 @@ client = OpenAI(
 
 class Agent:
     def __init__(
-        self, messages: list, tools: list = PARENT_TOOLS, isSubAgent: bool = False
+        self,
+        messages: list,
+        tools: list = PARENT_TOOLS,
+        isSubAgent: bool = False,
     ):
         self.rounds_since_todo = 0
         self.messages = messages
         self.tools = tools
         self.isSubAgent = isSubAgent
 
-    def start(self):
+    def run(self):
         return self.agent_loop()
 
     def agent_loop(self):
@@ -65,7 +68,7 @@ class Agent:
                         )
             print()
 
-            full_content = "".join(content_chunks) if content_chunks else "(无回复)"
+            full_content = "".join(content_chunks) if content_chunks else ""
 
             tool_calls = None
             if tool_calls_chunks:
@@ -142,6 +145,7 @@ class Agent:
             # subagent 调用
             if tool_name == "task":
                 from agents.sub_agent import run_subagent
+
                 result = run_subagent(args["prompt"])
             elif tool_name == "compression":
                 manual_compact = True
@@ -149,7 +153,7 @@ class Agent:
             elif tool_name not in TOOL_MAPPER:
                 result = f"工具 {tool_name} 不存在"
             else:
-                result = TOOL_MAPPER[tool_name](**args)
+                result = TOOL_MAPPER[tool_name](**args, tool_call_id=tool_call_id)
             out = result if len(result) < 500 else result[:500] + "\n... (输出已截断)"
             print("\033[32m 执行结果:\033[0m")
             print(f"\033[32m{out}\033[0m")

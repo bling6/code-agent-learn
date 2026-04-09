@@ -4,6 +4,8 @@ from typing import Any
 from openai import OpenAI
 import os
 from dotenv import load_dotenv
+from pathlib import Path
+import time
 # from test_data import messages
 load_dotenv()
 
@@ -12,12 +14,16 @@ client = OpenAI(
     base_url=os.getenv("BASE_URL"),
 )
 
+WORKDIR = Path.cwd()
+
 # 保留最近的工具调用结果数量
 KEEP_RECENT = 10
 # 不压缩结果的工具名称集合
 RESERVE_RESULT_TOOLS = {"read_file"}
 # 最小内容长度，低于此长度不压缩
 MIN_CONTENT_LENGTH = 100
+
+TRANSCRIPT_DIR = WORKDIR / ".transcripts"
 
 def tools_msg_compression(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """
@@ -63,6 +69,11 @@ def auto_compression(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
     自动压缩消息，将所有消息通过LLM生成摘要进行压缩
     保留system消息
     """
+    TRANSCRIPT_DIR.mkdir(exist_ok=True)
+    path = TRANSCRIPT_DIR / f"transcript_{int(time.time())}.jsonl"
+    with open(path, "w", encoding="utf-8") as f:
+        for msg in messages:
+            f.write(json.dumps(msg, ensure_ascii=False) + "\n")
     if len(messages) <= 30:
         return messages
     system_messages = messages[1]

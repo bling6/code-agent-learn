@@ -50,7 +50,7 @@ class Agent:
             if len(self.messages) > THRESHOLD:
                 self.messages[:] = auto_compression(self.messages)
             response = client.chat.completions.create(
-                model="glm-5",
+                model=os.getenv("MODEL"),
                 tools=self.tools,
                 messages=self.messages,
                 max_tokens=8000,

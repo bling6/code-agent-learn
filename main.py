@@ -8,6 +8,8 @@ from agents.utils.Memory import memory_manager
 import os
 import sys
 
+INIT_PROMPT = """Please analyze this codebase and create a CLAUDE.md file, which will be given to future instances of Claude Code to operate in this repository.\n\nWhat to add:\n1. Commands that will be commonly used, such as how to build, lint, and run tests. Include the necessary commands to develop in this codebase, such as how to run a single test.\n2. High-level code architecture and structure so that future instances can be productive more quickly. Focus on the \"big picture\" architecture that requires reading multiple files to understand.\n\nUsage notes:\n- If there's already a CLAUDE.md, suggest improvements to it.\n- When you make the initial CLAUDE.md, do not repeat yourself and do not include obvious instructions like \"Provide helpful error messages to users\", \"Write unit tests for all new utilities\", \"Never include sensitive information (API keys, tokens) in code or commits\".\n- Avoid listing every component or file structure that can be easily discovered.\n- Don't include generic development practices.\n- If there are Cursor rules (in .cursor/rules/ or .cursorrules) or Copilot rules (in .github/copilot-instructions.md), make sure to include the important parts.\n- If there is a README.md, make sure to include the important parts.\n- Do not make up information such as \"Common Development Tasks\", \"Tips for Development\", \"Support and Documentation\" unless this is expressly included in other files that you read.\n- Be sure to prefix the file with the following text:\n\n```\n# CLAUDE.md\n\nThis file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.\n```"""
+
 
 def _print_welcome():
     """打印欢迎信息"""
@@ -17,6 +19,7 @@ def _print_welcome():
     print("\033[90m输入 'clear' 清空对话历史\033[0m")
     print("\033[90m输入 'history' 查看对话历史\033[0m")
     print("\033[90m输入 'memories' 查看记忆历史\033[0m")
+    # print("\033[90m输入 '/init' 初始化助手\033[0m")
     print("\033[94m" + "=" * 60 + "\033[0m")
     print()
 
@@ -85,7 +88,11 @@ def main():
                 else:
                     print("  (no memories)")
                 continue
-
+            # if user_input.strip() == "/init":
+            #     messages.append(
+            #         {"role": "user", "content": INIT_PROMPT},
+            #     )
+            # else:
             messages.append(
                 {"role": "user", "content": user_input},
             )

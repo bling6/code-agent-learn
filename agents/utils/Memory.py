@@ -118,7 +118,6 @@ class MemoryManager:
         MEMORY_INDEX.write_text("\n".join(lines) + "\n")
 
     def _parse_frontmatter(self, text: str) -> dict | None:
-        """Parse --- delimited frontmatter + body content."""
         match = re.match(r"^---\s*\n(.*?)\n---\s*\n(.*)", text, re.DOTALL)
         if not match:
             return None

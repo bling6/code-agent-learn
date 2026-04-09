@@ -57,11 +57,9 @@ class Agent:
                 # print(chunk)
                 if chunk.choices:
                     delta = chunk.choices[0].delta
-
                     if delta.content:
                         print(delta.content, end="", flush=True)
                         content_chunks.append(delta.content)
-
                     if delta.tool_calls:
                         self.deal_tool_chunk(
                             delta, tool_calls_chunks, tool_call_printed
@@ -135,7 +133,6 @@ class Agent:
 
     def tool_execute(self, tool_calls: list):
         used_todo = False
-        manual_compact = False
         for tool_call in tool_calls:
             tool_name = tool_call["function"]["name"]
             if tool_name == "todo":
@@ -148,23 +145,21 @@ class Agent:
 
                 result = run_subagent(args["prompt"])
             elif tool_name == "compression":
-                manual_compact = True
-                result = "压缩中..."
+                print("手动压缩")
+                self.messages[:] = auto_compression(self.messages)
+                result = "已压缩完成"
             elif tool_name not in TOOL_MAPPER:
                 result = f"工具 {tool_name} 不存在"
             else:
-                result = TOOL_MAPPER[tool_name](**args, tool_call_id=tool_call_id)
+                result = TOOL_MAPPER[tool_name](**args)
             out = result if len(result) < 500 else result[:500] + "\n... (输出已截断)"
             print("\033[32m 执行结果:\033[0m")
             print(f"\033[32m{out}\033[0m")
             self.messages.append(
-                {"role": "tool", "tool_call_id": tool_call_id, "content": result}
+                {"role": "tool", "tool_call_id": tool_call_id, "content": result[:8000]}
             )
         if todoList.items:
             self.rounds_since_todo = 0 if used_todo else self.rounds_since_todo + 1
         # 超过三次未更新任务，需要提醒
         if self.rounds_since_todo >= 3:
             self.messages.append({"role": "user", "content": "记得更新任务列表"})
-        if manual_compact:
-            print("手动压缩")
-            self.messages[:] = auto_compression(self.messages)

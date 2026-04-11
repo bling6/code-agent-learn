@@ -4,6 +4,7 @@ from fnmatch import fnmatch
 
 MODES = ("default", "plan", "auto")
 DEFAULT_RULES = [
+    {"tool": "*", "behavior": "allow"},
     # Always deny dangerous patterns
     {"tool": "bash", "content": "rm -rf /", "behavior": "deny"},
     {"tool": "bash", "content": "sudo *", "behavior": "deny"},
@@ -77,6 +78,8 @@ class PermissionManager:
     def _matches(self, rule: dict, tool_name: str, tool_input: dict) -> dict | None:
         """Check if a rule matches the tool call."""
         # Tool name match
+        if rule.get("tool") == "*":
+            return rule
         if rule.get("tool") and rule["tool"] != "*":
             if rule["tool"] != tool_name:
                 return None

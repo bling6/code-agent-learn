@@ -27,6 +27,7 @@ def run_subagent(prompt: str):
         messages=message,
         tools=CHILD_TOOLS,
         isSubAgent=True,
+        teammateName="subagent",
         permission=permission,
     ).run()
     print(f"子agent回复: {out}")

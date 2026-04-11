@@ -5,8 +5,10 @@ from pathlib import Path
 
 WORKDIR = Path.cwd()
 
+MAIN_SYSTEM_PROMPT = f"""你是 {os.getcwd()} 的专业的 AI 程序员助手。"""
+
 # 系统提示词
-SYSTEM = f"""你是 {os.getcwd()} 的专业的 AI 程序员助手。
+SYSTEM = f"""
 注意事项：
 - 你必须**先判断用户问题是否需要技能**：
    - 不需要技能 → 直接正常回答
@@ -36,9 +38,14 @@ MEMORY_SYSTEM_PROMPT = """
 - 密钥或凭证（API 密钥、密码）
 """
 
-def build_system_prompt() -> str:
-    parts = [SYSTEM]
 
+def build_system_prompt(prefix: str) -> str:
+    parts = []
+    if prefix:
+        parts.append(prefix)
+    else:
+        parts.append(MAIN_SYSTEM_PROMPT)
+    parts.append(SYSTEM)
     memory_section = memory_manager.load_memory_prompt()
     if memory_section:
         parts.append(memory_section)

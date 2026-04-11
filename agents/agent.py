@@ -9,6 +9,7 @@ from agents.utils.context_compression import tools_msg_compression, auto_compres
 from agents.utils.Permission import PermissionManager
 from agents.prompt import build_system_prompt
 from agents.background_task import bgManager
+from .teams import messageBus
 
 
 load_dotenv()
@@ -29,20 +30,49 @@ class Agent:
         permission: PermissionManager = None,
         tools: list = PARENT_TOOLS,
         isSubAgent: bool = False,
+        system_prompt: str = "",
+        teammateName: str = "",
     ):
         self.rounds_since_todo = 0
         self.messages = messages
         self.tools = tools
         self.permission = permission
         self.isSubAgent = isSubAgent
+        self.system_prompt = system_prompt
+        self.teammateName = teammateName
 
     def run(self):
         return self.agent_loop()
 
+    def deal_inbox(self):
+        inbox = messageBus.read_inbox(self.teammateName or "lead")
+        if inbox:
+            if self.teammateName:
+                self.messages.append(
+                    {
+                        "role": "user",
+                        "content": json.dumps(inbox, indent=2, ensure_ascii=False),
+                    }
+                )
+            else:
+                self.messages.append(
+                    {
+                        "role": "user",
+                        "content": f"<inbox>{json.dumps(inbox, indent=2, ensure_ascii=False)}</inbox>",
+                    }
+                )
+        elif self.teammateName:
+            self.messages.append(
+                {
+                    "role": "user",
+                    "content": "[]",
+                }
+            )
+
     def agent_loop(self):
         self.rounds_since_todo = 0
         while True:
-            system_prompt = build_system_prompt()
+            system_prompt = build_system_prompt(prefix=self.system_prompt)
             self.messages[0]["content"] = system_prompt
             notify_text = self.check_background()
             if notify_text:
@@ -52,7 +82,10 @@ class Agent:
                         "content": f"<background-results>\n{notify_text}\n</background-results>",
                     }
                 )
-            print(f"\033[92m思考中...{'(子agent)' if self.isSubAgent else ''}\033[0m")
+            self.deal_inbox()
+            print(
+                f"\033[92m思考中...{f'({self.teammateName})' if self.teammateName else ''}\033[0m"
+            )
             # 压缩工具调用结果消息
             tools_msg_compression(self.messages)
             # 自动压缩消息
@@ -134,7 +167,7 @@ class Agent:
                     )
                     if index not in tool_call_printed:
                         print(
-                            f"\n\033[33m🛠️ [调用工具] {tool_call_delta.function.name}\033[0m"
+                            f"\n\033[33m{self.teammateName}🛠️ [调用工具] {tool_call_delta.function.name}\033[0m"
                         )
                         print("\033[90m   参数: \033[0m", end="", flush=True)
                         tool_call_printed.add(index)
@@ -180,6 +213,19 @@ class Agent:
                 print("手动压缩")
                 self.messages[:] = auto_compression(self.messages)
                 result = "已压缩完成"
+            elif tool_name == "send_message" and self.teammateName:
+                result = messageBus.send(
+                    self.teammateName,
+                    args["to"],
+                    args["content"],
+                    args.get("msg_type", "message"),
+                )
+            elif tool_name == "read_inbox" and self.teammateName:
+                result = json.dumps(
+                    messageBus.read_inbox(self.teammateName),
+                    indent=2,
+                    ensure_ascii=False,
+                )
             elif tool_name not in TOOL_MAPPER:
                 result = f"工具 {tool_name} 不存在"
             else:

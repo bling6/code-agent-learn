@@ -1,11 +1,13 @@
 from pathlib import Path
 import subprocess
 import os
+import json
 from .todo import todoList
 from .utils.skill_loader import SKILL_LOADER
 from .utils.Memory import memory_manager
 from .task import taskManager
 from .background_task import bgManager
+from .teams import messageBus, teamManager, VALID_MSG_TYPES
 
 
 # TOOLS = [
@@ -19,6 +21,7 @@ from .background_task import bgManager
 #         },
 #     }
 # ]
+
 BASE_TOOLS = [
     {
         "type": "function",
@@ -158,8 +161,45 @@ BASE_TOOLS = [
         "function": {"name": "compression", "description": "手动触发上下文消息压缩"},
     },
 ]
+
+BUS_TOOLS = [
+    {
+        "type": "function",
+        "function": {
+            "name": "send_message",
+            "description": "发送消息给队友.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "to": {
+                        "type": "string",
+                    },
+                    "content": {
+                        "type": "string",
+                    },
+                    "msg_type": {
+                        "type": "string",
+                        "enum": list(VALID_MSG_TYPES),
+                    },
+                },
+                "required": ["to", "content"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "read_inbox",
+            "description": "仔细阅读并清空lead的收件箱。",
+            "parameters": {
+                "type": "object",
+                "properties": {},
+            },
+        },
+    },
+]
 CHILD_TOOLS = BASE_TOOLS
-PARENT_TOOLS = CHILD_TOOLS + [
+PARENT_TOOLS = CHILD_TOOLS + BUS_TOOLS + [
     {
         "type": "function",
         "function": {
@@ -349,8 +389,58 @@ PARENT_TOOLS = CHILD_TOOLS + [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "spawn_teammate",
+            "description": "生成或者唤醒一个在独立线程中运行的持久队友",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "name": {
+                        "type": "string",
+                        "description": "队友名称",
+                    },
+                    "role": {
+                        "type": "string",
+                        "description": "队友角色",
+                    },
+                    "prompt": {
+                        "type": "string",
+                    },
+                },
+                "required": ["name", "role", "prompt"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "list_teammates",
+            "description": "列出所有队友的名称、角色和状态",
+            "parameters": {
+                "type": "object",
+                "properties": {},
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "broadcast",
+            "description": "广播消息给所有队友",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "content": {
+                        "type": "string",
+                    },
+                },
+                "required": ["content"],
+            },
+        },
+    },
 ]
-
 WORKDIR = Path.cwd()
 
 
@@ -453,4 +543,15 @@ TOOL_MAPPER = {
     "task_del": lambda **kw: taskManager.del_file(kw["task_ids"]),
     "background_run": lambda **kw: bgManager.run(kw["command"]),
     "check_background": lambda **kw: bgManager.check(kw.get("task_id")),
+    "spawn_teammate": lambda **kw: teamManager.spawn(
+        kw["name"], kw["role"], kw["prompt"]
+    ),
+    "list_teammates": lambda **kw: teamManager.list_all(),
+    "send_message": lambda **kw: messageBus.send(
+        "lead", kw["to"], kw["content"], kw.get("msg_type", "message")
+    ),
+    "read_inbox": lambda **kw: json.dumps(messageBus.read_inbox("lead"), indent=2),
+    "broadcast": lambda **kw: messageBus.broadcast(
+        "lead", kw["content"], teamManager.member_names()
+    ),
 }

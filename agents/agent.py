@@ -8,6 +8,7 @@ from agents.tools import PARENT_TOOLS, TOOL_MAPPER
 from agents.utils.context_compression import tools_msg_compression, auto_compression
 from agents.utils.Permission import PermissionManager
 from agents.prompt import build_system_prompt
+from agents.background_task import bgManager
 
 
 load_dotenv()
@@ -43,6 +44,14 @@ class Agent:
         while True:
             system_prompt = build_system_prompt()
             self.messages[0]["content"] = system_prompt
+            notify_text = self.check_background()
+            if notify_text:
+                self.messages.append(
+                    {
+                        "role": "user",
+                        "content": f"<background-results>\n{notify_text}\n</background-results>",
+                    }
+                )
             print(f"\033[92m思考中...{'(子agent)' if self.isSubAgent else ''}\033[0m")
             # 压缩工具调用结果消息
             tools_msg_compression(self.messages)
@@ -207,3 +216,14 @@ class Agent:
         return {
             "result": "allow",
         }
+
+    def check_background(self):
+        notifies = bgManager.drain_notifications()
+        if notifies and self.messages:
+            notify_text = "\n".join(
+                f"[bg:{n['task_id']}] {n['status']}: {n['preview']} "
+                f"(output_file={n['output_file']})"
+                for n in notifies
+            )
+            return notify_text
+        return None

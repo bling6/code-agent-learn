@@ -15,7 +15,7 @@ def _print_welcome():
     """打印欢迎信息"""
     print("\033[94m" + "=" * 60 + "\033[0m")
     print("\033[92m🤖 AI 程序员助手\033[0m")
-    print("\033[90m输入 'exit', 'quit', 'q' 或按 Ctrl+D 退出\033[0m")
+    print("\033[90m输入 'exit', 'quit', 'q' 或按 Ctrl+C 退出\033[0m")
     print("\033[90m输入 'clear' 清空对话历史\033[0m")
     print("\033[90m输入 'history' 查看对话历史\033[0m")
     print("\033[90m输入 'memories' 查看记忆历史\033[0m")

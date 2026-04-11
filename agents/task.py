@@ -116,4 +116,4 @@ class TaskManager:
         return f"任务ID {','.join(map(str, task_ids))} 已删除"
 
 
-task_manager = TaskManager(TASKS_DIR)
+taskManager = TaskManager(TASKS_DIR)

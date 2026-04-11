@@ -4,7 +4,8 @@ import os
 from .todo import todoList
 from .utils.skill_loader import SKILL_LOADER
 from .utils.Memory import memory_manager
-from .task import task_manager
+from .task import taskManager
+from .background_task import bgManager
 
 
 # TOOLS = [
@@ -315,6 +316,39 @@ PARENT_TOOLS = CHILD_TOOLS + [
             },
         },
     },
+    {
+        "type": "function",
+        "function": {
+            "name": "background_run",
+            "description": "在后台线程中运行command。立即返回 task_id。",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "command": {
+                        "type": "string",
+                        "description": "要运行的命令",
+                    },
+                },
+                "required": ["command"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "check_background",
+            "description": "检查后台线程任务的状态。",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "task_id": {
+                        "type": "string",
+                        "description": "任务ID",
+                    },
+                },
+            },
+        },
+    },
 ]
 
 WORKDIR = Path.cwd()
@@ -396,25 +430,27 @@ def run_save_memory(name: str, description: str, type: str, content: str) -> str
 
 TOOL_MAPPER = {
     "bash": run_bash,
-    "read_file": run_read_file,
+    "read_file": lambda **kw: run_read_file(kw["path"]),
     "write_file": lambda **kw: run_write_file(kw["path"], kw["content"]),
     "edit_file": lambda **kw: run_edit_file(kw["path"], kw["old_text"], kw["new_text"]),
-    "todo": todoList.update,
-    "load_skill": SKILL_LOADER.get_content,
+    "todo": lambda **kw: todoList.update(kw["items"]),
+    "load_skill": lambda **kw: SKILL_LOADER.get_content(kw["name"]),
     "save_memory": lambda **kw: run_save_memory(
         kw["name"], kw["description"], kw["type"], kw["content"]
     ),
-    "task_create": lambda **kw: task_manager.create(
+    "task_create": lambda **kw: taskManager.create(
         kw["subject"], kw.get("description", "")
     ),
-    "task_update": lambda **kw: task_manager.update(
+    "task_update": lambda **kw: taskManager.update(
         kw["task_id"],
         kw.get("status"),
         kw.get("owner"),
         kw.get("addBlockedBy"),
         kw.get("addBlocks"),
     ),
-    "task_list": task_manager.list_all,
-    "task_get": lambda **kw: task_manager.get(kw["task_id"]),
-    "task_del": lambda **kw: task_manager.del_file(kw["task_ids"]),
+    "task_list": taskManager.list_all,
+    "task_get": lambda **kw: taskManager.get(kw["task_id"]),
+    "task_del": lambda **kw: taskManager.del_file(kw["task_ids"]),
+    "background_run": lambda **kw: bgManager.run(kw["command"]),
+    "check_background": lambda **kw: bgManager.check(kw.get("task_id")),
 }

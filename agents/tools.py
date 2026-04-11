@@ -8,6 +8,7 @@ from .utils.Memory import memory_manager
 from .task import taskManager
 from .background_task import bgManager
 from .teams import messageBus, teamManager, VALID_MSG_TYPES
+from .utils.web_tools import web_search as run_web_search, web_fetch as run_web_fetch
 
 
 # TOOLS = [
@@ -159,6 +160,48 @@ BASE_TOOLS = [
     {
         "type": "function",
         "function": {"name": "compression", "description": "手动触发上下文消息压缩"},
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "web_search",
+            "description": "搜索互联网，返回相关结果的标题、链接和摘要。用于查找文档、解决方案、最新信息等。",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "query": {
+                        "type": "string",
+                        "description": "搜索关键词",
+                    },
+                    "max_results": {
+                        "type": "integer",
+                        "description": "返回结果数量，默认8，最大15",
+                    },
+                },
+                "required": ["query"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "web_fetch",
+            "description": "获取指定URL的网页内容，转换为Markdown格式文本返回。用于读取网页文档、API文档等。",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "url": {
+                        "type": "string",
+                        "description": "要获取的网页URL",
+                    },
+                    "max_length": {
+                        "type": "integer",
+                        "description": "返回内容的最大长度，默认8000",
+                    },
+                },
+                "required": ["url"],
+            },
+        },
     },
 ]
 
@@ -553,4 +596,6 @@ TOOL_MAPPER = {
     "broadcast": lambda **kw: messageBus.broadcast(
         "lead", kw["content"], teamManager.member_names()
     ),
+    "web_search": lambda **kw: run_web_search(kw["query"], kw.get("max_results", 8)),
+    "web_fetch": lambda **kw: run_web_fetch(kw["url"], kw.get("max_length", 8000)),
 }

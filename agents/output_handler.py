@@ -1,4 +1,5 @@
 from dataclasses import dataclass, field
+import threading
 
 
 @dataclass
@@ -8,7 +9,7 @@ class AgentEvent:
 
 
 class OutputHandler:
-    def emit(self):
+    def emit(self, event: AgentEvent):
         pass
 
     def thinking(self, agent_name: str = ""):
@@ -65,12 +66,37 @@ class CliOutputHandler(OutputHandler):
 class ServiceOutputHandler(OutputHandler):
     def __init__(self):
         self.events: list[AgentEvent] = []
+        self._subscribers: list[threading.Event] = []
+        self._done = threading.Event()
 
     def emit(self, event: AgentEvent):
         self.events.append(event)
+        # Wake up all SSE listeners waiting for new events
+        for notify in self._subscribers:
+            notify.set()
+
+        # Mark done on terminal events
+        if event.type in ("response", "error"):
+            self._done.set()
+            for notify in self._subscribers:
+                notify.set()
 
     def clear(self):
         self.events.clear()
+        self._subscribers.clear()
+        self._done.clear()
 
-    def get_events_since(self, index: int) -> list[AgentEvent]:
-        return self.events[index:]
+    def subscribe(self) -> threading.Event:
+        notify = threading.Event()
+        self._subscribers.append(notify)
+        return notify
+
+    def unsubscribe(self, notify: threading.Event):
+        if notify in self._subscribers:
+            self._subscribers.remove(notify)
+
+    def is_done(self) -> bool:
+        return self._done.is_set()
+
+    def wait_for_event(self, notify: threading.Event, timeout: float = 30.0) -> bool:
+        return notify.wait(timeout=timeout)

@@ -10,6 +10,7 @@ from agents.utils.Permission import PermissionManager
 from agents.prompt import build_system_prompt
 from agents.background_task import bgManager
 from agents.utils.transcript import transcript_manager
+from agents.output_handler import OutputHandler, CliOutputHandler
 from .teams import messageBus
 
 
@@ -33,6 +34,7 @@ class Agent:
         isSubAgent: bool = False,
         system_prompt: str = "",
         teammateName: str = "",
+        output_handler: OutputHandler = None,
     ):
         self.rounds_since_todo = 0
         self.messages = messages
@@ -42,6 +44,7 @@ class Agent:
         self.system_prompt = system_prompt
         self.teammateName = teammateName
         self.agent_name = teammateName if teammateName else "lead"
+        self.output = output_handler or CliOutputHandler()
 
     def run(self):
         return self.agent_loop()
@@ -100,9 +103,7 @@ class Agent:
                         }
                     )
                 self.deal_inbox()
-                print(
-                    f"\033[92m思考中...{f'({self.teammateName})' if self.teammateName else ''}\033[0m"
-                )
+                self.output.thinking(self.teammateName)
                 # 压缩工具调用结果消息
                 tools_msg_compression(self.messages)
                 # 自动压缩消息
@@ -116,8 +117,7 @@ class Agent:
                 )
                 msg = response.choices[0].message
                 if msg.reasoning_content:
-                    print("\033[94m思考内容: \033[0m")
-                    print(f"\033[90m {msg.reasoning_content}\033[0m")
+                    self.output.reasoning(msg.reasoning_content)
                 tool_calls = None
                 if msg.tool_calls:
                     tool_calls = [
@@ -139,11 +139,9 @@ class Agent:
                 self.messages.append(assistant_msg)
                 full_content = msg.content
                 if not msg.tool_calls:
-                    print(full_content)
+                    self.output.response(full_content)
                     return full_content
                 self.tool_execute(msg.tool_calls)
-
-                print()
         finally:
             self.save_all_messages()
 
@@ -185,13 +183,11 @@ class Agent:
             tool_name = tool_call.function.name
             tool_call_id = tool_call.id
             args = json.loads(tool_call.function.arguments)
-            print(f"\n\033[33m{self.teammateName}🛠️ [调用工具] {tool_name}\033[0m")
-            print(f"\033[90m   参数:  \033[0m{args}")
+            self.output.tool_call(tool_name, args)
             # 检查权限
             permission = self.check_permission(tool_name, args)
             if permission["result"] == "deny":
-                print("\033[32m 执行结果:\033[0m")
-                print(f"\033[32m{permission['reason']}\033[0m")
+                self.output.permission_denied(tool_name, permission["reason"])
                 self.messages.append(
                     {
                         "role": "tool",
@@ -210,7 +206,6 @@ class Agent:
 
                 result = run_subagent(args["prompt"])
             elif tool_name == "compression":
-                print("手动压缩")
                 self.messages[:] = auto_compression(self.messages)
                 result = "已压缩完成"
             elif tool_name == "send_message" and self.teammateName:
@@ -231,8 +226,7 @@ class Agent:
             else:
                 result = TOOL_MAPPER[tool_name](**args)
             out = result if len(result) < 500 else result[:500] + "\n... (输出已截断)"
-            print("\033[32m 执行结果:\033[0m")
-            print(f"\033[32m{out}\033[0m")
+            self.output.tool_result(tool_name, out, truncated=len(result) >= 500)
             self.messages.append(
                 {
                     "role": "tool",

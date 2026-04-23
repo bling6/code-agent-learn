@@ -115,7 +115,6 @@ def auto_compression(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
         "content": f"[对话历史摘要]\n{summary}"
     })
     compressed_messages.extend(last_messages)
-    print(compressed_messages)
     return compressed_messages
 
 # auto_compression(messages)

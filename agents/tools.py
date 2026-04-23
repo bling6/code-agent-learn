@@ -495,7 +495,6 @@ def path_check(p: str):
 
 # bash 命令工具
 def run_bash(command: str):
-    print(f"\033[33m运行命令: {command}\033[0m")
     dangerous = ["rm -rf /", "sudo", "shutdown", "reboot", "> /dev/"]
     if any(d in command for d in dangerous):
         return "命令包含危险字符，拒绝执行"

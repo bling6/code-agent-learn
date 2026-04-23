@@ -20,11 +20,12 @@ DEFAULT_RULES = [
 
 
 class PermissionManager:
-    def __init__(self, mode: str = "default", rules: list = None):
+    def __init__(self, mode: str = "default", rules: list = None, ask_user_callback=None):
         # if mode not in MODES:
         #     raise ValueError(f"Unknown mode: {mode}. Choose from {MODES}")
         # self.mode = mode
         self.rules = rules or list(DEFAULT_RULES)
+        self._ask_user = ask_user_callback or self._default_ask_user
         # 请求系统不允许的操作。
         # self.consecutive_denials = 0
         # self.max_consecutive_denials = 3
@@ -57,8 +58,8 @@ class PermissionManager:
             "reason": f"未匹配到规则: {tool_name}, 询问用户",
         }
 
-    def ask_user(self, tool_name: str, tool_input: dict) -> bool:
-        """询问用户是否允许"""
+    def _default_ask_user(self, tool_name: str, tool_input: dict) -> bool:
+        """CLI 模式：从 stdin 读取用户确认"""
         preview = json.dumps(tool_input, ensure_ascii=False)[:200]
         print(f"\n  [Permission] {tool_name}: {preview}")
         try:
@@ -67,13 +68,15 @@ class PermissionManager:
             return False
 
         if answer == "always":
-            # 为该工具添加永久允许规则
             self.rules.append({"tool": tool_name, "path": "*", "behavior": "allow"})
             return True
         if answer in ("y", "yes"):
             return True
 
         return False
+
+    def ask_user(self, tool_name: str, tool_input: dict) -> bool:
+        return self._ask_user(tool_name, tool_input)
 
     def _matches(self, rule: dict, tool_name: str, tool_input: dict) -> dict | None:
         """Check if a rule matches the tool call."""

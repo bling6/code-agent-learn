@@ -30,5 +30,4 @@ def run_subagent(prompt: str):
         teammateName="subagent",
         permission=permission,
     ).run()
-    print(f"子agent回复: {out}")
     return out

@@ -4,7 +4,7 @@
 
 ## 项目简介
 
-这是个人学习项目，旨在通过动手实现来深入理解 AI Agent 的核心原理。项目实现了一个完整的多 Agent 编程助手，支持工具调用、团队协作、持久化记忆、联网搜索等功能，所有能力均由 OpenAI 兼容 API 驱动。
+这是个人学习项目，旨在通过动手实现来深入理解 AI Agent 的核心原理。项目实现了一个完整的多 Agent 编程助手，支持工具调用、团队协作、持久化记忆、联网搜索等功能，所有能力均由 OpenAI 兼容 API 驱动。支持 CLI 模式和 Web 服务模式。
 
 ## 功能特性
 
@@ -17,31 +17,44 @@
 - **会话持久化** — 完整对话历史保存与恢复
 - **技能系统** — 可扩展的 Markdown 技能文件，支持热加载
 - **后台任务** — Bash 命令后台执行与状态追踪
+- **双模式运行** — CLI 终端模式和 Web 服务模式，共享核心 Agent 逻辑
 
 ## 架构概览
 
 ```
-main.py (CLI REPL)
+main.py (入口)
   │
-  └─→ Agent (核心循环)
-        │
-        ├─→ OpenAI 兼容 API (可配置 BASE_URL / MODEL)
-        │
-        ├─→ 工具调度 (TOOL_MAPPER)
-        │     ├─ 文件操作 (read_file / write_file / edit_file)
-        │     ├─ Bash 执行 (沙箱化，安全校验)
-        │     ├─ 任务管理 (TaskManager → .tasks/)
-        │     ├─ 记忆系统 (MemoryManager → .memory/)
-        │     ├─ 后台任务 (BackgroundManager → .runtime-tasks/)
-        │     ├─ 联网工具 (DuckDuckGo 搜索 + 网页抓取)
-        │     ├─ 技能加载 (SkillLoader → skills/)
-        │     └─ 团队协作 (MessageBus + TeammateManager)
-        │
-        ├─→ 子 Agent (spawn_agent → 独立上下文的一次性 Agent)
-        │
-        ├─→ 权限管理 (PermissionManager)
-        │
-        └─→ 上下文压缩 (工具结果摘要 + LLM 总结)
+  ├─→ CLI 模式 (默认)
+  │     REPL 循环 → CliOutputHandler → ANSI 彩色终端输出
+  │
+  └─→ Web 模式 (--web)
+        service/main.py → FastAPI
+          │
+          ├─→ SSE 流式推送 (/api/chat/stream)
+          ├─→ 轮询式获取 (/api/runs/events)
+          └─→ 会话管理 (SessionManager)
+                │
+                └─→ ServiceOutputHandler → 事件列表 + 订阅通知
+
+Agent (核心循环)
+  │
+  ├─→ OpenAI 兼容 API (可配置 BASE_URL / MODEL)
+  │
+  ├─→ 工具调度 (TOOL_MAPPER)
+  │     ├─ 文件操作 (read_file / write_file / edit_file)
+  │     ├─ Bash 执行 (沙箱化，安全校验)
+  │     ├─ 任务管理 (TaskManager → .tasks/)
+  │     ├─ 记忆系统 (MemoryManager → .memory/)
+  │     ├─ 后台任务 (BackgroundManager → .runtime-tasks/)
+  │     ├─ 联网工具 (DuckDuckGo 搜索 + 网页抓取)
+  │     ├─ 技能加载 (SkillLoader → skills/)
+  │     └─ 团队协作 (MessageBus + TeammateManager)
+  │
+  ├─→ 子 Agent (spawn_agent → 独立上下文的一次性 Agent)
+  │
+  ├─→ 权限管理 (PermissionManager)
+  │
+  └─→ 上下文压缩 (工具结果摘要 + LLM 总结)
 ```
 
 ## 工具分层
@@ -58,6 +71,7 @@ main.py (CLI REPL)
 
 - Python >= 3.12
 - [uv](https://github.com/astral-sh/uv) 包管理器
+- Node.js >= 18（Web 模式前端）
 
 ### 安装
 
@@ -80,14 +94,20 @@ MODEL=gpt-4o                          # 或其他模型
 ### 运行
 
 ```bash
+# CLI 模式（默认）
 uv run main.py
+
+# Web 服务模式（后端 + 前端分别启动）
+uv run main.py --web          # 启动后端 API（端口 8000）
+cd web && npm install         # 安装前端依赖
+cd web && npm run dev         # 启动前端（端口 5173，代理 /api 到 8000）
 ```
 
-### REPL 命令
+### CLI REPL 命令
 
 | 命令 | 说明 |
 |------|------|
-| `exit` / `quit` | 退出程序 |
+| `exit` / `quit` / `q` | 退出程序 |
 | `clear` | 清空对话历史 |
 | `history` | 查看当前对话 |
 | `memories` | 查看持久化记忆 |
@@ -97,17 +117,21 @@ uv run main.py
 
 ```
 code-agent-learn/
-├── main.py                    # CLI 入口，REPL 循环
+├── main.py                    # 入口：CLI 默认，--web 启动服务模式
+├── service/
+│   ├── main.py                # Web 服务启动入口
+│   ├── app.py                 # FastAPI 应用和端点
+│   └── session.py             # Session/RunState/SessionManager 会话管理
 ├── agents/
 │   ├── agent.py               # 核心 Agent 类与主循环
 │   ├── tools.py               # 工具定义与调度映射
+│   ├── output_handler.py      # I/O 解耦：CliOutputHandler / ServiceOutputHandler
 │   ├── sub_agent.py           # 子 Agent 生成
 │   ├── prompt.py              # 系统提示词构建
 │   ├── task.py                # 持久化任务管理
 │   ├── todo.py                # 内存待办清单
 │   ├── teams.py               # 多 Agent 团队协作
 │   ├── background_task.py     # 后台任务执行
-│   ├── loop.py                # 旧版 DeepSeek 循环（已弃用）
 │   └── utils/
 │       ├── BashSecurityValidator.py  # Bash 命令安全校验
 │       ├── Memory.py                 # 持久化记忆管理
@@ -117,18 +141,25 @@ code-agent-learn/
 │       ├── transcript.py             # 会话持久化
 │       ├── watch_skill.py            # 技能文件热加载
 │       └── web_tools.py              # 联网搜索与抓取
-├── skills/                    # 技能目录（Markdown 格式）
-├── .memory/                   # 持久化记忆存储
-├── .tasks/                    # 持久化任务存储
-├── .transcripts/              # 会话历史存储
-└── .runtime-tasks/            # 后台任务运行时数据
+├── web/                        # React 前端（Vite + TypeScript）
+│   └── src/
+│       ├── App.tsx             # 主组件
+│       ├── api.ts              # API 调用封装
+│       ├── types.ts            # 类型定义
+│       ├── hooks/              # React hooks（事件轮询等）
+│       └── components/         # UI 组件
+├── skills/                     # 技能目录（Markdown 格式）
+├── .memory/                    # 持久化记忆存储
+├── .tasks/                     # 持久化任务存储
+├── .transcripts/               # 会话历史存储
+└── .runtime-tasks/             # 后台任务运行时数据
 ```
 
 ## 安全机制
 
 - **Bash 安全校验** — 自动拦截 `sudo`、`rm -rf` 等危险命令
 - **文件沙箱** — 文件操作限制在工作目录内
-- **权限管理** — 规则化的工具访问控制，未匹配操作需用户交互确认
+- **权限管理** — 规则化的工具访问控制，CLI 模式未匹配操作需用户交互确认，Web 模式自动允许（危险命令仍由 BashSecurityValidator 拒绝）
 
 ## 学习要点
 
@@ -140,6 +171,7 @@ code-agent-learn/
 4. **Context Management** — 长对话压缩与上下文窗口管理
 5. **Persistence** — 记忆、任务、会话的跨会话持久化
 6. **Safety** — 权限控制与安全校验
+7. **I/O Decoupling** — OutputHandler 模式实现 CLI/Web 双模式输出
 
 ## License
 
